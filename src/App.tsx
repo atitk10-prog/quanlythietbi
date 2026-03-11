@@ -17,6 +17,7 @@ import Profile from './pages/Profile';
 import RoomAction from './pages/RoomAction';
 import PrintQRRoom from './pages/PrintQRRoom';
 import Rooms from './pages/Rooms';
+import ReturnByTeacher from './pages/ReturnByTeacher';
 
 // Protected Route wrapper
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
@@ -49,6 +50,7 @@ export default function App() {
                 <Route path="device/:id" element={<DeviceAction />} />
                 <Route path="room/:subject/:room" element={<RoomAction />} />
                 <Route path="history" element={<History />} />
+                <Route path="return/:teacher" element={<ReturnByTeacher />} />
                 <Route path="inventory" element={<ProtectedRoute allowedRoles={['equipment', 'vice_principal', 'admin']}><Inventory /></ProtectedRoute>} />
                 <Route path="maintenance" element={<ProtectedRoute allowedRoles={['equipment', 'vice_principal', 'admin']}><Maintenance /></ProtectedRoute>} />
                 <Route path="print-qr" element={<ProtectedRoute allowedRoles={['equipment', 'vice_principal', 'admin']}><PrintQRs /></ProtectedRoute>} />

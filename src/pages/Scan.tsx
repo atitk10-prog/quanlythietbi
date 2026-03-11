@@ -26,6 +26,15 @@ export default function Scan() {
     } catch { /* ignore */ }
 
     try {
+      // Return QR: /return/teacherName
+      if (decodedText.includes('/return/')) {
+        const parts = decodedText.split('/return/');
+        if (parts.length > 1) {
+          const teacherPath = parts[1].trim();
+          navigate(`/return/${teacherPath}`);
+          return;
+        }
+      }
       // Room QR: /room/subject/room
       if (decodedText.includes('/room/')) {
         const parts = decodedText.split('/room/');
