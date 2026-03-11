@@ -458,6 +458,25 @@ function returnDevice(data) {
   var missingQtyCol = headers.indexOf('missing_qty');
   var missingNoteCol = headers.indexOf('missing_note');
   
+  // Auto-create missing columns if needed
+  var lastCol = headers.length;
+  if (returnedQtyCol === -1) {
+    returnedQtyCol = lastCol++;
+    borrowSheet.getRange(1, returnedQtyCol + 1).setValue('returned_qty');
+  }
+  if (missingQtyCol === -1) {
+    missingQtyCol = lastCol++;
+    borrowSheet.getRange(1, missingQtyCol + 1).setValue('missing_qty');
+  }
+  if (missingNoteCol === -1) {
+    missingNoteCol = lastCol++;
+    borrowSheet.getRange(1, missingNoteCol + 1).setValue('missing_note');
+  }
+  if (noteCol === -1) {
+    noteCol = lastCol++;
+    borrowSheet.getRange(1, noteCol + 1).setValue('note');
+  }
+  
   var foundRow = -1;
   for (var i = 1; i < borrowData.length; i++) {
     if (String(borrowData[i][idCol]) === String(data.borrow_id)) {
