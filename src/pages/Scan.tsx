@@ -1,28 +1,29 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, AlertCircle, ImagePlus, RefreshCw, SwitchCamera } from 'lucide-react';
+import { Camera, AlertCircle, ImagePlus, RefreshCw, FlipHorizontal } from 'lucide-react';
 
 export default function Scan() {
   const [error, setError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(true);
   const navigate = useNavigate();
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hasNavigated = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(true);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
-  const handleScanResult = (decodedText: string) => {
-    if (hasNavigated.current) return;
+  const handleScanResult = useCallback((decodedText: string) => {
+    if (hasNavigated.current || !mountedRef.current) return;
     hasNavigated.current = true;
 
     // Stop scanner before navigating
-    const sc = scannerRef.current;
-    if (sc) {
-      sc.stop().catch(() => {});
-    }
+    try {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+      }
+    } catch { /* ignore */ }
 
     try {
       // Room QR: /room/subject/room
@@ -49,10 +50,10 @@ export default function Scan() {
       setError('Mã QR không hợp lệ');
       hasNavigated.current = false;
     }
-  };
+  }, [navigate]);
 
-  const startScanner = async (facing: 'environment' | 'user') => {
-    if (!containerRef.current) return;
+  const startScanner = useCallback(async (facing: 'environment' | 'user') => {
+    if (!mountedRef.current) return;
 
     // Clean up any existing scanner
     if (scannerRef.current) {
@@ -66,14 +67,29 @@ export default function Scan() {
     setError(null);
     setIsScanning(false);
 
-    const scanner = new Html5Qrcode('qr-reader');
-    scannerRef.current = scanner;
-
-    // Calculate responsive qrbox
-    const containerWidth = containerRef.current.offsetWidth;
-    const qrboxSize = Math.min(Math.floor(containerWidth * 0.7), 250);
-
     try {
+      // Dynamic import to prevent build-time crashes
+      const { Html5Qrcode } = await import('html5-qrcode');
+
+      // Wait for DOM element to be ready
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      if (!mountedRef.current) return;
+
+      const readerEl = document.getElementById('qr-reader');
+      if (!readerEl) {
+        setError('Không thể khởi tạo scanner. Vui lòng tải lại trang.');
+        setCameraStarting(false);
+        return;
+      }
+
+      const scanner = new Html5Qrcode('qr-reader');
+      scannerRef.current = scanner;
+
+      // Calculate responsive qrbox
+      const containerWidth = containerRef.current?.offsetWidth || 300;
+      const qrboxSize = Math.min(Math.floor(containerWidth * 0.65), 250);
+
       await scanner.start(
         { facingMode: facing },
         {
@@ -81,39 +97,54 @@ export default function Scan() {
           qrbox: { width: qrboxSize, height: qrboxSize },
           aspectRatio: 1,
         },
-        (decodedText) => {
+        (decodedText: string) => {
           handleScanResult(decodedText);
         },
         () => {
-          // Ignore per-frame scan errors
+          // Ignore per-frame errors
         }
       );
-      setIsScanning(true);
-      setCameraStarting(false);
+
+      if (mountedRef.current) {
+        setIsScanning(true);
+        setCameraStarting(false);
+      }
     } catch (err: any) {
-      console.error('Camera start error:', err);
+      if (!mountedRef.current) return;
+      console.error('Camera error:', err);
       setCameraStarting(false);
 
-      if (String(err).includes('NotAllowedError') || String(err).includes('Permission')) {
+      const errStr = String(err);
+      if (errStr.includes('NotAllowedError') || errStr.includes('Permission')) {
         setError('Vui lòng cho phép truy cập camera trong cài đặt trình duyệt, sau đó tải lại trang.');
-      } else if (String(err).includes('NotFoundError') || String(err).includes('devices')) {
-        setError('Không tìm thấy camera. Hãy thử chọn ảnh QR ở phía dưới.');
+      } else if (errStr.includes('NotFoundError') || errStr.includes('device')) {
+        setError('Không tìm thấy camera. Hãy thử chọn ảnh QR ở dưới.');
+      } else if (errStr.includes('NotReadableError') || errStr.includes('track')) {
+        setError('Camera đang được dùng bởi ứng dụng khác. Hãy đóng các app camera rồi thử lại.');
       } else {
-        setError(`Không thể khởi động camera: ${typeof err === 'string' ? err : err?.message || 'Lỗi không xác định'}. Hãy thử chọn ảnh QR.`);
+        setError('Không thể bật camera. Hãy thử nút "Chọn ảnh QR" bên dưới.');
       }
     }
-  };
+  }, [handleScanResult]);
 
   useEffect(() => {
+    mountedRef.current = true;
     hasNavigated.current = false;
-    startScanner(facingMode);
+
+    // Delay start to ensure DOM is fully ready
+    const timer = setTimeout(() => {
+      startScanner(facingMode);
+    }, 500);
 
     return () => {
-      const sc = scannerRef.current;
-      if (sc) {
-        sc.stop().catch(() => {});
-        scannerRef.current = null;
-      }
+      mountedRef.current = false;
+      clearTimeout(timer);
+      try {
+        if (scannerRef.current) {
+          scannerRef.current.stop().catch(() => {});
+          scannerRef.current = null;
+        }
+      } catch { /* ignore */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -142,6 +173,15 @@ export default function Scan() {
           await scannerRef.current.stop();
         } catch { /* ignore */ }
         setIsScanning(false);
+      }
+
+      const { Html5Qrcode } = await import('html5-qrcode');
+
+      // Need a visible div for scanFile
+      const tempDiv = document.getElementById('qr-reader-file');
+      if (!tempDiv) {
+        setError('Lỗi hệ thống. Vui lòng tải lại trang.');
+        return;
       }
 
       const scanner = new Html5Qrcode('qr-reader-file');
@@ -197,7 +237,7 @@ export default function Scan() {
       </div>
 
       {/* Hidden div for file scanning */}
-      <div id="qr-reader-file" className="hidden" />
+      <div id="qr-reader-file" style={{ display: 'none' }} />
 
       {/* Action buttons */}
       <div className="flex gap-2">
@@ -206,7 +246,7 @@ export default function Scan() {
             onClick={handleSwitchCamera}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-200 active:scale-[0.98] transition-all"
           >
-            <SwitchCamera className="h-4 w-4" />
+            <FlipHorizontal className="h-4 w-4" />
             Đổi camera
           </button>
         )}
@@ -228,7 +268,6 @@ export default function Scan() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture={undefined}
             onChange={handleFileUpload}
             className="hidden"
           />
