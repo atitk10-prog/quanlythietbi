@@ -1,0 +1,5 @@
+{
+  "name": "School Equipment QR Manager",
+  "description": "A web application for managing school equipment using QR codes, with Google Sheets backend.",
+  "requestFramePermissions": ["camera"]
+}

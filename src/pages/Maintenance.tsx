@@ -1,0 +1,325 @@
+import React, { useState, useMemo } from 'react';
+import { api, type MaintenanceRecord } from '../services/api';
+import { useData } from '../context/DataContext';
+import { useAuth } from '../store/auth';
+import { format } from 'date-fns';
+import { Plus, Search, Wrench } from 'lucide-react';
+
+export default function Maintenance() {
+  const { maintenanceHistory, devices, rooms, isLoading, refreshMaintenance } = useData();
+  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Device search state
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const [showDeviceDropdown, setShowDeviceDropdown] = useState(false);
+
+  const [newRecord, setNewRecord] = useState({
+    device_id: '',
+    device_name: '', // for display
+    room: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    content: '',
+    technician: user?.name || '',
+    result: 'Đã sửa'
+  });
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Filter devices for dropdown (respects managed_rooms for equipment staff)
+  const visibleDevices = useMemo(() => {
+    if (user?.role === 'equipment' && user.managed_rooms) {
+      const managedIds = user.managed_rooms.split(',').map(s => s.trim()).filter(Boolean);
+      if (managedIds.length > 0) {
+        const managedRooms = rooms.filter(r => managedIds.includes(r.id));
+        return devices.filter(d => managedRooms.some(r => r.name === d.room && r.subject === d.subject));
+      }
+    }
+    return devices;
+  }, [devices, rooms, user]);
+
+  const filteredDevices = useMemo(() => {
+    if (!deviceSearch.trim()) return visibleDevices;
+    const q = deviceSearch.toLowerCase();
+    return visibleDevices.filter(d =>
+      d.name.toLowerCase().includes(q) ||
+      d.id.toLowerCase().includes(q) ||
+      d.room.toLowerCase().includes(q) ||
+      d.subject.toLowerCase().includes(q)
+    );
+  }, [visibleDevices, deviceSearch]);
+
+  const selectDevice = (d: { id: string; name: string; room: string; subject: string }) => {
+    setNewRecord(prev => ({
+      ...prev,
+      device_id: d.id,
+      device_name: `${d.name} (${d.id})`,
+      room: `${d.room} - ${d.subject}`,
+    }));
+    setDeviceSearch(`${d.name} - ${d.room}`);
+    setShowDeviceDropdown(false);
+  };
+
+  const openAddModal = () => {
+    setNewRecord({
+      device_id: '',
+      device_name: '',
+      room: '',
+      date: format(new Date(), 'yyyy-MM-dd'),
+      content: '',
+      technician: user?.name || '',
+      result: 'Đã sửa'
+    });
+    setDeviceSearch('');
+    setShowAddModal(true);
+  };
+
+  // Sort by date descending
+  const sortedHistory = [...maintenanceHistory].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  const handleAddRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRecord.device_id) {
+      showToast('Vui lòng chọn thiết bị', 'error');
+      return;
+    }
+    try {
+      showToast('Đang lưu...');
+      await api.addMaintenance({
+        device_id: newRecord.device_id,
+        date: newRecord.date,
+        content: newRecord.content,
+        technician: newRecord.technician,
+        result: newRecord.result,
+        room: newRecord.room,
+      });
+      setShowAddModal(false);
+      showToast('Đã thêm ghi chú bảo trì');
+      refreshMaintenance();
+    } catch (error: any) {
+      console.error('Failed to add maintenance record', error);
+      showToast(error.message || 'Lỗi khi lưu', 'error');
+    }
+  };
+
+  const filteredHistory = sortedHistory.filter(h =>
+    h.device_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    h.technician.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (h.content && h.content.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Get device name from device list
+  const getDeviceName = (deviceId: string) => {
+    const d = devices.find(dev => dev.id === deviceId);
+    return d ? d.name : deviceId;
+  };
+
+  const getDeviceRoom = (deviceId: string) => {
+    const d = devices.find(dev => dev.id === deviceId);
+    return d ? `${d.room} - ${d.subject}` : '';
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-slate-900">Lịch sử bảo trì</h1>
+        <button
+          onClick={openAddModal}
+          className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+        >
+          <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+          Thêm ghi chú bảo trì
+        </button>
+      </div>
+
+      <div className="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-200 bg-slate-50">
+          <div className="relative max-w-md">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <Search className="h-5 w-5 text-slate-400" aria-hidden="true" />
+            </div>
+            <input
+              type="text"
+              className="block w-full rounded-md border-slate-300 pl-10 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 border"
+              placeholder="Tìm kiếm theo mã TB, nội dung, người sửa..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Mã GD</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Thiết bị</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phòng</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Ngày</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Nội dung</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Người sửa</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Kết quả</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-slate-200">
+              {isLoading ? (
+                [...Array(3)].map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-32"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
+                  </tr>
+                ))
+              ) : filteredHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-slate-500">Không có dữ liệu</td>
+                </tr>
+              ) : (
+                filteredHistory.map((record) => (
+                  <tr key={record.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{record.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="font-medium text-slate-900">{getDeviceName(record.device_id)}</div>
+                      <div className="text-xs text-indigo-500 font-mono">{record.device_id}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{getDeviceRoom(record.device_id)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                      {format(new Date(record.date), 'dd/MM/yyyy')}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-700">{record.content}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{record.technician}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${record.result === 'Đã sửa' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                        {record.result}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[100] px-4 py-3 rounded-xl shadow-lg text-white text-sm font-medium ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
+          {toast.message}
+        </div>
+      )}
+
+      {/* Add Maintenance Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-slate-500/75 transition-opacity" aria-hidden="true" onClick={() => setShowAddModal(false)}></div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative z-10">
+              <form onSubmit={handleAddRecord}>
+                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <div className="flex items-center mb-4">
+                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center mr-3">
+                      <Wrench className="h-5 w-5 text-indigo-600" />
+                    </div>
+                    <h3 className="text-lg leading-6 font-medium text-slate-900" id="modal-title">
+                      Thêm ghi chú bảo trì
+                    </h3>
+                  </div>
+                  <div className="space-y-4">
+                    {/* Device search dropdown */}
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-slate-700">Thiết bị <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={deviceSearch}
+                        onChange={e => {
+                          setDeviceSearch(e.target.value);
+                          setShowDeviceDropdown(true);
+                          if (!e.target.value) {
+                            setNewRecord(prev => ({ ...prev, device_id: '', device_name: '', room: '' }));
+                          }
+                        }}
+                        onFocus={() => setShowDeviceDropdown(true)}
+                        className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="Tìm theo tên thiết bị, phòng, bộ môn..."
+                      />
+                      {showDeviceDropdown && (
+                        <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {filteredDevices.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-slate-500">Không tìm thấy thiết bị</div>
+                          ) : (
+                            filteredDevices.map(d => (
+                              <button
+                                key={d.id}
+                                type="button"
+                                className={`w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-0 ${newRecord.device_id === d.id ? 'bg-indigo-50 text-indigo-700' : ''}`}
+                                onClick={() => selectDevice(d)}
+                              >
+                                <div className="font-medium">{d.name}</div>
+                                <div className="text-xs text-slate-500">{d.id} • {d.room} • {d.subject} • <span className={d.status === 'Tốt' ? 'text-emerald-600' : 'text-red-600'}>{d.status}</span></div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Selected device info */}
+                    {newRecord.device_id && (
+                      <div className="bg-indigo-50 rounded-lg px-3 py-2 text-sm">
+                        <span className="font-medium text-indigo-700">Đã chọn:</span> {newRecord.device_name} — <span className="text-slate-600">{newRecord.room}</span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">Ngày</label>
+                        <input type="date" required value={newRecord.date} onChange={e => setNewRecord({ ...newRecord, date: e.target.value })} className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">Kết quả</label>
+                        <select value={newRecord.result} onChange={e => setNewRecord({ ...newRecord, result: e.target.value })} className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                          <option value="Đã sửa">Đã sửa</option>
+                          <option value="Chưa sửa được">Chưa sửa được</option>
+                          <option value="Cần thay thế">Cần thay thế</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Nội dung <span className="text-red-500">*</span></label>
+                      <input type="text" required value={newRecord.content} onChange={e => setNewRecord({ ...newRecord, content: e.target.value })} className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Mô tả nội dung bảo trì..." />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Người sửa</label>
+                      <input type="text" value={newRecord.technician} onChange={e => setNewRecord({ ...newRecord, technician: e.target.value })} className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Tên người sửa chữa" />
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-slate-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <button type="submit" disabled={!newRecord.device_id} className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50">
+                    Lưu
+                  </button>
+                  <button type="button" onClick={() => setShowAddModal(false)} className="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    Hủy
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
