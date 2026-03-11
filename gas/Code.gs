@@ -209,22 +209,17 @@ function initialSetup() {
 
 // --- AUTH ---
 function login(email, password) {
-  let users = sheetToObjects('users');
-  let user = users.find(u => String(u.email).toLowerCase() === String(email).toLowerCase() && String(u.password) === String(password));
-  
-  // Nếu sai login, thử tự động sửa dữ liệu (Repair)
-  if (!user) {
-    repairUserData();
-    users = sheetToObjects('users');
-    user = users.find(u => String(u.email).toLowerCase() === String(email).toLowerCase() && String(u.password) === String(password));
-  }
+  var users = sheetToObjects('users');
+  var user = users.find(function(u) {
+    return String(u.email).toLowerCase() === String(email).toLowerCase() && String(u.password) === String(password);
+  });
 
   if (!user) {
     throw new Error('Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại!');
   }
   
   // Normalize: đảm bảo luôn có field 'id' 
-  const result = {};
+  var result = {};
   for (var key in user) {
     if (key === 'password') continue;
     result[key] = user[key];
@@ -315,12 +310,18 @@ function updateDevice(id, updates) {
   const found = findRowByIdInSheet('devices', id);
   if (!found) throw new Error('Không tìm thấy thiết bị');
   
-  const { sheet, rowIndex, headers } = found;
-  for (let key in updates) {
-    const colIndex = headers.indexOf(key.toLowerCase());
+  const { sheet, rowIndex, headers, rowData } = found;
+  var newRow = rowData.slice();
+  var changed = false;
+  for (var key in updates) {
+    var colIndex = headers.indexOf(key.toLowerCase());
     if (colIndex !== -1 && key.toLowerCase() !== 'id') {
-      sheet.getRange(rowIndex, colIndex + 1).setValue(updates[key]);
+      newRow[colIndex] = updates[key];
+      changed = true;
     }
+  }
+  if (changed) {
+    sheet.getRange(rowIndex, 1, 1, newRow.length).setValues([newRow]);
   }
   return { success: true };
 }
@@ -615,16 +616,22 @@ function addRoom(data) {
 }
 
 function updateRoom(id, updates) {
-  const found = findRowByIdInSheet('rooms', id);
+  var found = findRowByIdInSheet('rooms', id);
   if (!found) throw new Error('Không tìm thấy phòng');
   
-  const { sheet, rowIndex, headers } = found;
-  for (let key in updates) {
+  var sheet = found.sheet, rowIndex = found.rowIndex, headers = found.headers, rowData = found.rowData;
+  var newRow = rowData.slice();
+  var changed = false;
+  for (var key in updates) {
     if (key === 'id') continue;
-    const colIndex = headers.indexOf(key.toLowerCase());
+    var colIndex = headers.indexOf(key.toLowerCase());
     if (colIndex !== -1) {
-      sheet.getRange(rowIndex, colIndex + 1).setValue(updates[key]);
+      newRow[colIndex] = updates[key];
+      changed = true;
     }
+  }
+  if (changed) {
+    sheet.getRange(rowIndex, 1, 1, newRow.length).setValues([newRow]);
   }
   return { success: true };
 }
@@ -724,21 +731,26 @@ function addUser(data) {
 }
 
 function updateUser(id, updates) {
-  const userId = id || (updates && updates.user_id);
+  var userId = id || (updates && updates.user_id);
   if (!userId) return { error: 'Thiếu ID người dùng' };
   
-  const found = findRowByIdInSheet('users', userId);
+  var found = findRowByIdInSheet('users', userId);
   if (!found) return { error: 'Không tìm thấy người dùng với ID: ' + String(userId) };
   
-  const { sheet, rowIndex, headers } = found;
-  for (let key in updates) {
-    const colKey = key.toLowerCase().trim();
-    // Skip id fields and internal fields
+  var sheet = found.sheet, rowIndex = found.rowIndex, headers = found.headers, rowData = found.rowData;
+  var newRow = rowData.slice();
+  var changed = false;
+  for (var key in updates) {
+    var colKey = key.toLowerCase().trim();
     if (colKey === 'id' || colKey === 'user_id') continue;
-    const colIndex = headers.indexOf(colKey);
+    var colIndex = headers.indexOf(colKey);
     if (colIndex !== -1) {
-      sheet.getRange(rowIndex, colIndex + 1).setValue(updates[key]);
+      newRow[colIndex] = updates[key];
+      changed = true;
     }
+  }
+  if (changed) {
+    sheet.getRange(rowIndex, 1, 1, newRow.length).setValues([newRow]);
   }
   return { success: true };
 }

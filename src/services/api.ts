@@ -1,9 +1,71 @@
-// This is a mock API service that simulates the Google Apps Script backend.
-// In a real deployment, you would replace these functions with fetch calls to your GAS Web App URL.
-// ⚠️ WARNING: Passwords below are plain-text for DEMO purposes only.
-// In production, use a proper authentication system with hashed passwords.
+// API Service with Caching for Google Apps Script Backend
+// Uses sessionStorage cache to reduce redundant API calls and improve load time
 
 const GAS_URL = import.meta.env.VITE_GAS_URL || '';
+
+// --- Cache Layer ---
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+}
+
+const cache = {
+  get(key: string): any | null {
+    try {
+      const raw = sessionStorage.getItem(`api_cache_${key}`);
+      if (!raw) return null;
+      const entry: CacheEntry = JSON.parse(raw);
+      if (Date.now() - entry.timestamp > CACHE_DURATION) {
+        sessionStorage.removeItem(`api_cache_${key}`);
+        return null;
+      }
+      return entry.data;
+    } catch {
+      return null;
+    }
+  },
+
+  set(key: string, data: any): void {
+    try {
+      const entry: CacheEntry = { data, timestamp: Date.now() };
+      sessionStorage.setItem(`api_cache_${key}`, JSON.stringify(entry));
+    } catch {
+      // sessionStorage full — ignore
+    }
+  },
+
+  invalidate(prefix: string): void {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith(`api_cache_${prefix}`)) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => sessionStorage.removeItem(k));
+    } catch {
+      // ignore
+    }
+  },
+
+  invalidateAll(): void {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith('api_cache_')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => sessionStorage.removeItem(k));
+    } catch {
+      // ignore
+    }
+  }
+};
 
 // --- Types ---
 export type Device = {
@@ -150,39 +212,69 @@ const mapUser = (row: any): User => ({
 export const api = {
   // Auth
   login: async (email: string, password: string) => {
+    cache.invalidateAll(); // Clear cache on login
     return await callApi('login', { email, password });
   },
 
-  // Devices
+  // Devices (with caching)
   getDevices: async (): Promise<Device[]> => {
+    const cached = cache.get('devices');
+    if (cached) return cached;
+
     const data = await callApi('getDevices');
-    return data.map(mapDevice);
+    const devices = data.map(mapDevice);
+    cache.set('devices', devices);
+    return devices;
   },
 
   getDevice: async (id: string): Promise<Device> => {
+    // Try from cached device list first
+    const cachedDevices = cache.get('devices');
+    if (cachedDevices) {
+      const found = cachedDevices.find((d: Device) => d.id === id);
+      if (found) return found;
+    }
+
     const data = await callApi('getDevice', { id });
     return mapDevice(data);
   },
 
   addDevice: async (device: Omit<Device, 'id' | 'purchase_date' | 'value'>): Promise<{ success: boolean, id: string }> => {
-    return await callApi('addDevice', device);
+    const result = await callApi('addDevice', device);
+    cache.invalidate('devices'); // Invalidate device cache
+    cache.invalidate('dashboard'); // Dashboard depends on devices
+    return result;
   },
 
   updateDevice: async (id: string, updates: Partial<Device>): Promise<{ success: boolean }> => {
-    return await callApi('updateDevice', { id, ...updates });
+    const result = await callApi('updateDevice', { id, ...updates });
+    cache.invalidate('devices');
+    cache.invalidate('dashboard');
+    return result;
   },
 
   deleteDevice: async (id: string): Promise<{ success: boolean }> => {
-    return await callApi('deleteDevice', { id });
+    const result = await callApi('deleteDevice', { id });
+    cache.invalidate('devices');
+    cache.invalidate('dashboard');
+    return result;
   },
 
   // Borrow
   borrowDevice: async (data: { device_id: string; teacher: string; class: string; period: string; note: string; quantity?: number }): Promise<{ success: boolean, id: string, available: number }> => {
-    return await callApi('borrowDevice', data);
+    const result = await callApi('borrowDevice', data);
+    cache.invalidate('devices');
+    cache.invalidate('borrow');
+    cache.invalidate('dashboard');
+    return result;
   },
 
   returnDevice: async (data: { device_id: string; borrow_id: string; teacher: string; returned_qty?: number; missing_qty?: number; missing_note?: string; status: string; note: string }): Promise<{ success: boolean }> => {
-    return await callApi('returnDevice', data);
+    const result = await callApi('returnDevice', data);
+    cache.invalidate('devices');
+    cache.invalidate('borrow');
+    cache.invalidate('dashboard');
+    return result;
   },
 
   getActiveBorrows: async (device_id: string): Promise<BorrowRecord[]> => {
@@ -191,106 +283,119 @@ export const api = {
   },
 
   returnMissing: async (data: { borrow_id: string; teacher: string; returned_qty: number; note?: string }): Promise<{ success: boolean }> => {
-    return await callApi('returnMissing', data);
+    const result = await callApi('returnMissing', data);
+    cache.invalidate('borrow');
+    cache.invalidate('devices');
+    return result;
   },
 
   getBorrowHistory: async (): Promise<BorrowRecord[]> => {
+    const cached = cache.get('borrowHistory');
+    if (cached) return cached;
+
     const data = await callApi('getBorrowHistory');
-    return data.map(mapBorrow);
+    const history = data.map(mapBorrow);
+    cache.set('borrowHistory', history);
+    return history;
   },
 
-  // Maintenance
+  // Maintenance (with caching)
   getMaintenanceHistory: async (): Promise<MaintenanceRecord[]> => {
+    const cached = cache.get('maintenance');
+    if (cached) return cached;
+
     const data = await callApi('getMaintenanceHistory');
-    return data.map(mapMaintenance);
+    const records = data.map(mapMaintenance);
+    cache.set('maintenance', records);
+    return records;
   },
 
   addMaintenance: async (data: Omit<MaintenanceRecord, 'id'>): Promise<{ success: boolean, id: string }> => {
-    return await callApi('addMaintenance', data);
+    const result = await callApi('addMaintenance', data);
+    cache.invalidate('maintenance');
+    return result;
   },
 
-  // Dashboard Stats
+  // Dashboard Stats — use backend getDashboardStats directly instead of downloading all devices
   getDashboardStats: async (department?: string): Promise<DashboardStats> => {
-    // If not leader, backend can calculate naturally. Else we fetch and filter locally.
-    const devices = await api.getDevices();
-    const filteredDevices = department ? devices.filter(d => d.subject === department) : devices;
+    const cacheKey = `dashboard_stats_${department || 'all'}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
 
-    const total = filteredDevices.length;
-    const borrowing = filteredDevices.filter(d => d.status === 'Đang mượn').length;
-    const broken = filteredDevices.filter(d => d.status === 'Hỏng' || d.status === 'Hỏng nhẹ').length;
-    const maintenance = filteredDevices.filter(d => d.status === 'Cần bảo trì').length;
-
-    return { total, borrowing, broken, maintenance };
+    const stats = await callApi('getDashboardStats', { department: department || '' });
+    cache.set(cacheKey, stats);
+    return stats;
   },
 
-  // Weekly usage stats for chart
+  // Weekly usage stats — use backend directly
   getWeeklyUsageStats: async (department?: string): Promise<{ name: string; borrow: number; return: number }[]> => {
-    const [devices, borrowHistory] = await Promise.all([
-      api.getDevices(),
-      api.getBorrowHistory()
-    ]);
+    const cacheKey = `dashboard_weekly_${department || 'all'}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
 
-    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-    const stats = dayNames.map(name => ({ name, borrow: 0, return: 0 }));
-
-    const filteredHistory = department
-      ? borrowHistory.filter(h => {
-        const device = devices.find(d => d.id === h.device_id);
-        return device?.subject === department;
-      })
-      : borrowHistory;
-
-    filteredHistory.forEach(record => {
-      if (record.borrow_date) {
-        const borrowDay = new Date(record.borrow_date).getDay();
-        stats[borrowDay].borrow++;
-      }
-      if (record.return_date) {
-        const returnDay = new Date(record.return_date).getDay();
-        stats[returnDay].return++;
-      }
-    });
-
-    // Return Mon-Sat
-    return stats.slice(1);
+    const stats = await callApi('getWeeklyUsageStats', { department: department || '' });
+    cache.set(cacheKey, stats);
+    return stats;
   },
 
-  // Users
+  // Users (with caching)
   getUsers: async (): Promise<User[]> => {
+    const cached = cache.get('users');
+    if (cached) return cached;
+
     const data = await callApi('getUsers');
-    return data.map(mapUser);
+    const users = data.map(mapUser);
+    cache.set('users', users);
+    return users;
   },
 
   addUser: async (user: Omit<User, 'id'> & { password?: string }): Promise<{ success: boolean, id: string }> => {
-    return await callApi('addUser', user);
+    const result = await callApi('addUser', user);
+    cache.invalidate('users');
+    return result;
   },
 
   updateUser: async (id: string, updates: Partial<User>): Promise<{ success: boolean }> => {
-    return await callApi('updateUser', { id, user_id: id, ...updates });
+    const result = await callApi('updateUser', { id, user_id: id, ...updates });
+    cache.invalidate('users');
+    return result;
   },
 
   deleteUser: async (id: string): Promise<{ success: boolean }> => {
-    return await callApi('deleteUser', { id, user_id: id });
+    const result = await callApi('deleteUser', { id, user_id: id });
+    cache.invalidate('users');
+    return result;
   },
 
   changePassword: async (id: string, currentPassword: string, newPassword: string): Promise<{ success: boolean }> => {
     return await callApi('changePassword', { id, user_id: id, currentPassword, newPassword });
   },
 
-  // Rooms
+  // Rooms (with caching)
   getRooms: async (): Promise<Room[]> => {
-    return await callApi('getRooms');
+    const cached = cache.get('rooms');
+    if (cached) return cached;
+
+    const data = await callApi('getRooms');
+    cache.set('rooms', data);
+    return data;
   },
 
   addRoom: async (room: Omit<Room, 'id'>): Promise<{ success: boolean; id: string }> => {
-    return await callApi('addRoom', room);
+    const result = await callApi('addRoom', room);
+    cache.invalidate('rooms');
+    return result;
   },
 
   updateRoom: async (id: string, updates: Partial<Room>): Promise<{ success: boolean }> => {
-    return await callApi('updateRoom', { id, ...updates });
+    const result = await callApi('updateRoom', { id, ...updates });
+    cache.invalidate('rooms');
+    return result;
   },
 
   deleteRoom: async (id: string): Promise<{ success: boolean }> => {
-    return await callApi('deleteRoom', { id });
+    const result = await callApi('deleteRoom', { id });
+    cache.invalidate('rooms');
+    return result;
   },
 };
