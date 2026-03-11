@@ -199,9 +199,9 @@ export default function Users() {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <h1 className="text-2xl font-bold text-slate-900">Quản lý tài khoản</h1>
+        <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Quản lý tài khoản</h1>
                 <button
                     onClick={openAddModal}
                     className="inline-flex items-center justify-center rounded-xl border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition-all active:scale-95"
@@ -213,7 +213,7 @@ export default function Users() {
 
             {/* Toast Notification */}
             {toast && (
-                <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div className="fixed bottom-20 md:bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <div className={`flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border ${toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
                         }`}>
                         <CheckCircle2 className={`h-5 w-5 ${toast.type === 'success' ? 'text-emerald-500' : 'text-red-500'}`} />
@@ -223,8 +223,8 @@ export default function Users() {
             )}
 
             <div className="bg-white shadow-sm rounded-2xl border border-slate-200 overflow-hidden">
-                <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-                    <div className="relative max-w-sm">
+                <div className="p-3 sm:p-4 border-b border-slate-200 bg-slate-50/50">
+                    <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search className="h-5 w-5 text-slate-400" />
                         </div>
@@ -238,7 +238,8 @@ export default function Users() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50/50">
                             <tr>
@@ -336,6 +337,52 @@ export default function Users() {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-slate-100">
+                    {isLoading ? (
+                        [...Array(3)].map((_, i) => (
+                            <div key={i} className="p-4 animate-pulse space-y-2">
+                                <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                                <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                            </div>
+                        ))
+                    ) : filteredUsers.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-sm text-slate-500">Không tìm thấy người dùng nào</div>
+                    ) : (
+                        filteredUsers.map((u) => (
+                            <div key={u.id} className="p-3 hover:bg-slate-50 transition-colors">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center flex-1 min-w-0">
+                                        <div className="h-9 w-9 flex-shrink-0 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                                            {u.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="ml-3 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold text-slate-900 truncate">{u.name}</span>
+                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium border flex-shrink-0 ${getRoleBadge(u.role)}`}>
+                                                    {getRoleLabel(u.role)}
+                                                </span>
+                                            </div>
+                                            <div className="text-xs text-slate-500 truncate">{u.email} • {u.department}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+                                        <button onClick={() => handleResetPassword(u)} className="p-2 text-slate-400 hover:text-amber-600 rounded-lg" title="Reset">
+                                            <Key className="h-4 w-4" />
+                                        </button>
+                                        <button onClick={() => openEditModal(u)} className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg" title="Sửa">
+                                            <Edit className="h-4 w-4" />
+                                        </button>
+                                        <button onClick={() => setConfirmDeleteId(u)} disabled={u.id === currentUser?.id} className="p-2 text-slate-400 hover:text-red-600 rounded-lg disabled:opacity-30" title="Xóa">
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
 

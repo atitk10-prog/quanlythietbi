@@ -50,9 +50,9 @@ export default function History() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-900">Lịch sử mượn trả</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Lịch sử mượn trả</h1>
         {user?.role === 'vice_principal' && (
           <button
             onClick={exportCSV}
@@ -65,8 +65,8 @@ export default function History() {
       </div>
 
       <div className="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-200 bg-slate-50">
-          <div className="relative max-w-md">
+        <div className="p-3 sm:p-4 border-b border-slate-200 bg-slate-50">
+          <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <Search className="h-5 w-5 text-slate-400" aria-hidden="true" />
             </div>
@@ -80,7 +80,8 @@ export default function History() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
@@ -134,6 +135,45 @@ export default function History() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {isLoading ? (
+            [...Array(3)].map((_, i) => (
+              <div key={i} className="p-4 animate-pulse space-y-2">
+                <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+              </div>
+            ))
+          ) : filteredHistory.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-slate-500">Không có dữ liệu</div>
+          ) : (
+            filteredHistory.map((record) => (
+              <div key={record.id} className="p-3 hover:bg-slate-50 transition-colors">
+                <div className="flex items-start justify-between mb-1">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm text-indigo-600 font-medium">{record.device_id}</span>
+                      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${record.status === 'Đang mượn' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                        {record.status}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {record.teacher} • Lớp {record.class} - T{record.period}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1">
+                  <span>Mượn: {format(new Date(record.borrow_date), 'dd/MM HH:mm')}</span>
+                  {record.return_date && (
+                    <span>Trả: {format(new Date(record.return_date), 'dd/MM HH:mm')}</span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

@@ -1,1 +1,71 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+/* Safe area padding for iOS notch */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
+/* QR Scanner video responsive */
+#qr-reader video {
+  width: 100% !important;
+  height: auto !important;
+  object-fit: cover;
+  border-radius: 0.75rem;
+}
+
+#qr-reader {
+  border: none !important;
+  padding: 0 !important;
+}
+
+#qr-reader img[alt="Info icon"],
+#qr-reader span {
+  display: none !important;
+}
+
+/* Prevent zoom on input focus (iOS) */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  font-size: 16px !important;
+}
+
+@media (min-width: 640px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 14px !important;
+  }
+}
+
+/* Touch-friendly targets */
+@media (max-width: 639px) {
+  button, a, [role="button"] {
+    min-height: 44px;
+  }
+}
+
+/* Smooth scrolling */
+html {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbar for mobile nav */
+.mobile-bottom-nav {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.mobile-bottom-nav::-webkit-scrollbar {
+  display: none;
+}

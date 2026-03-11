@@ -175,46 +175,48 @@ export default function Devices() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-900">Danh sách thiết bị</h1>
-        <div className="flex gap-2">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Danh sách thiết bị</h1>
+        <div className="flex flex-wrap gap-2">
           {user?.role === 'vice_principal' && (
             <button
               onClick={exportCSV}
-              className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+              className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
             >
-              <Download className="-ml-1 mr-2 h-5 w-5 text-slate-400" aria-hidden="true" />
-              Xuất báo cáo
+              <Download className="-ml-1 mr-1.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+              <span className="hidden sm:inline">Xuất báo cáo</span>
+              <span className="sm:hidden">Xuất</span>
             </button>
           )}
           <button
             onClick={() => navigate('/print-qr')}
-            className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+            className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
           >
-            <Printer className="-ml-1 mr-2 h-5 w-5 text-slate-400" aria-hidden="true" />
-            In QR thiết bị
+            <Printer className="-ml-1 mr-1.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+            <span className="hidden sm:inline">In QR thiết bị</span>
+            <span className="sm:hidden">QR TB</span>
           </button>
           <button
             onClick={() => navigate('/print-qr-room')}
-            className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+            className="hidden sm:inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
           >
-            <MapPin className="-ml-1 mr-2 h-5 w-5 text-slate-400" aria-hidden="true" />
+            <MapPin className="-ml-1 mr-1.5 h-4 w-4 text-slate-400" aria-hidden="true" />
             In QR phòng
           </button>
           <button
             onClick={openAddModal}
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+            className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
           >
-            <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-            Thêm thiết bị
+            <Plus className="-ml-1 mr-1.5 h-4 w-4" aria-hidden="true" />
+            Thêm
           </button>
         </div>
       </div>
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed bottom-20 md:bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className={`flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border ${toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
             }`}>
             <CheckCircle2 className={`h-5 w-5 ${toast.type === 'success' ? 'text-emerald-500' : 'text-red-500'}`} />
@@ -224,8 +226,8 @@ export default function Devices() {
       )}
 
       <div className="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-200 bg-slate-50">
-          <div className="relative max-w-md">
+        <div className="p-3 sm:p-4 border-b border-slate-200 bg-slate-50">
+          <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <Search className="h-5 w-5 text-slate-400" aria-hidden="true" />
             </div>
@@ -239,7 +241,8 @@ export default function Devices() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
@@ -311,6 +314,67 @@ export default function Devices() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {isLoading ? (
+            [...Array(3)].map((_, i) => (
+              <div key={i} className="p-4 animate-pulse space-y-2">
+                <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+              </div>
+            ))
+          ) : filteredDevices.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-slate-500">Không tìm thấy thiết bị nào</div>
+          ) : (
+            filteredDevices.map((device) => (
+              <div key={device.id} className="p-3 hover:bg-slate-50 transition-colors active:bg-slate-100">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm text-slate-900 truncate">{device.name}</span>
+                      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full flex-shrink-0 ${getStatusColor(device.status)}`}>
+                        {device.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <span className="font-mono text-indigo-600">{device.id}</span>
+                      <span>•</span>
+                      <span>{device.room}</span>
+                      <span>•</span>
+                      <span>{device.subject}</span>
+                      <span>•</span>
+                      <span className="font-bold">SL: {device.quantity || 1}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                    <button
+                      onClick={() => setShowQRModal(device.id)}
+                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                      title="Xem QR"
+                    >
+                      <QrCode className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => openEditModal(device)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                      title="Sửa"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(device.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      title="Xóa"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

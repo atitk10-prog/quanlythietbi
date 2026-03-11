@@ -127,9 +127,9 @@ export default function Maintenance() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-900">Lịch sử bảo trì</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Lịch sử bảo trì</h1>
         <button
           onClick={openAddModal}
           className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
@@ -140,8 +140,8 @@ export default function Maintenance() {
       </div>
 
       <div className="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-200 bg-slate-50">
-          <div className="relative max-w-md">
+        <div className="p-3 sm:p-4 border-b border-slate-200 bg-slate-50">
+          <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <Search className="h-5 w-5 text-slate-400" aria-hidden="true" />
             </div>
@@ -155,7 +155,8 @@ export default function Maintenance() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
@@ -211,11 +212,51 @@ export default function Maintenance() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {isLoading ? (
+            [...Array(3)].map((_, i) => (
+              <div key={i} className="p-4 animate-pulse space-y-2">
+                <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+              </div>
+            ))
+          ) : filteredHistory.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-slate-500">Không có dữ liệu</div>
+          ) : (
+            filteredHistory.map((record) => (
+              <div key={record.id} className="p-3 hover:bg-slate-50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm text-slate-900 truncate">{getDeviceName(record.device_id)}</span>
+                      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full flex-shrink-0 ${record.result === 'Đã sửa' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                        {record.result}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {record.content}
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1">
+                      <span className="font-mono">{record.device_id}</span>
+                      <span>•</span>
+                      <span>{format(new Date(record.date), 'dd/MM/yyyy')}</span>
+                      <span>•</span>
+                      <span>{record.technician}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-[100] px-4 py-3 rounded-xl shadow-lg text-white text-sm font-medium ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
+        <div className={`fixed bottom-20 md:bottom-6 right-4 md:right-6 z-[100] px-4 py-3 rounded-xl shadow-lg text-white text-sm font-medium ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
           {toast.message}
         </div>
       )}
