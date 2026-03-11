@@ -228,13 +228,7 @@ export const api = {
   },
 
   getDevice: async (id: string): Promise<Device> => {
-    // Try from cached device list first
-    const cachedDevices = cache.get('devices');
-    if (cachedDevices) {
-      const found = cachedDevices.find((d: Device) => d.id === id);
-      if (found) return found;
-    }
-
+    // Always fetch fresh — this is used on DeviceAction where real-time data is critical
     const data = await callApi('getDevice', { id });
     return mapDevice(data);
   },

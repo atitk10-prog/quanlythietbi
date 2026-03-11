@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api, type Device } from '../services/api';
-import { Plus, Search, QrCode, Edit, Trash2, X, Download, Printer, CheckCircle2, AlertTriangle, MapPin } from 'lucide-react';
+import { Plus, Search, QrCode, Edit, Trash2, X, Download, Printer, CheckCircle2, AlertTriangle, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useData } from '../context/DataContext';
 import { QRCodeSVG } from 'qrcode.react';
@@ -9,6 +9,8 @@ import { useNavigate } from 'react-router-dom';
 export default function Devices() {
   const { devices, setDevices, rooms, isLoading, refreshDevices } = useData();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
   const [showAddModal, setShowAddModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState<string | null>(null);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
@@ -143,24 +145,45 @@ export default function Devices() {
     );
   });
 
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredDevices.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedDevices = filteredDevices.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handleSearch = (term: string) => { setSearchTerm(term); setCurrentPage(1); };
+
   const exportCSV = () => {
     if (filteredDevices.length === 0) return;
-
-    const headers = ['ID', 'Tên thiết bị', 'Bộ môn', 'Phòng', 'Tình trạng', 'Mã QR URL'];
-    const csvData = filteredDevices.map(d => [
-      d.id, d.name, d.subject, d.room, d.status, `${window.location.origin}/device/${d.id}`
+    const headers = ['STT', 'ID', 'Tên thiết bị', 'Bộ môn', 'Phòng', 'Tình trạng', 'Mã QR URL'];
+    const csvData = filteredDevices.map((d, i) => [
+      i + 1, d.id, d.name, d.subject, d.room, d.status, `${window.location.origin}/device/${d.id}`
     ]);
-
     const csvContent = [
       headers.join(','),
       ...csvData.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     ].join('\n');
-
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `DanhSachThietBi.csv`;
     link.click();
+  };
+
+  const PaginationControls = () => {
+    if (filteredDevices.length <= ITEMS_PER_PAGE) return null;
+    return (
+      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+        <div className="text-xs text-slate-500">{startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, filteredDevices.length)} / {filteredDevices.length}</div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safeCurrentPage <= 1}
+            className="p-1.5 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+          <span className="text-xs font-medium text-slate-700 px-2">{safeCurrentPage}/{totalPages}</span>
+          <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safeCurrentPage >= totalPages}
+            className="p-1.5 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+        </div>
+      </div>
+    );
   };
 
   const getStatusColor = (status: string) => {
@@ -236,7 +259,7 @@ export default function Devices() {
               className="block w-full rounded-md border-slate-300 pl-10 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 border"
               placeholder="Tìm kiếm thiết bị..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
             />
           </div>
         </div>
@@ -246,7 +269,8 @@ export default function Devices() {
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ID</th>
+                <th className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase w-12">STT</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ID</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tên thiết bị</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Bộ môn</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phòng</th>
@@ -267,14 +291,15 @@ export default function Devices() {
                     <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-24 ml-auto"></div></td>
                   </tr>
                 ))
-              ) : filteredDevices.length === 0 ? (
+              ) : paginatedDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-slate-500">Không tìm thấy thiết bị nào</td>
+                  <td colSpan={8} className="px-6 py-4 text-center text-sm text-slate-500">Không tìm thấy thiết bị nào</td>
                 </tr>
               ) : (
-                filteredDevices.map((device) => (
+                paginatedDevices.map((device, idx) => (
                   <tr key={device.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{device.id}</td>
+                    <td className="px-3 py-3 text-center text-sm text-slate-400">{startIndex + idx + 1}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">{device.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">{device.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{device.subject}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{device.room}</td>
@@ -328,11 +353,12 @@ export default function Devices() {
           ) : filteredDevices.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-slate-500">Không tìm thấy thiết bị nào</div>
           ) : (
-            filteredDevices.map((device) => (
+            paginatedDevices.map((device, idx) => (
               <div key={device.id} className="p-3 hover:bg-slate-50 transition-colors active:bg-slate-100">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-slate-400 font-medium">{startIndex + idx + 1}.</span>
                       <span className="font-semibold text-sm text-slate-900 truncate">{device.name}</span>
                       <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full flex-shrink-0 ${getStatusColor(device.status)}`}>
                         {device.status}
@@ -376,6 +402,8 @@ export default function Devices() {
             ))
           )}
         </div>
+
+        <PaginationControls />
       </div>
 
       {/* Add/Edit Device Modal */}

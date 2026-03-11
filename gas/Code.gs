@@ -132,6 +132,9 @@ function sheetToObjects(sheetName) {
   if (data.length < 2) return [];
 
   const headers = data[0];
+  // Columns that should always be treated as text (not dates)
+  var textColumns = ['class', 'teacher', 'period', 'name', 'email', 'content', 'note', 'missing_note', 'description', 'technician', 'result', 'subject', 'room', 'department', 'managed_rooms', 'status', 'qr_code', 'created_by', 'password'];
+  
   const objects = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
@@ -139,7 +142,17 @@ function sheetToObjects(sheetName) {
     const obj = {};
     for (let j = 0; j < headers.length; j++) {
       const header = String(headers[j]).toLowerCase().trim();
-      obj[header] = row[j];
+      var val = row[j];
+      // Convert Date objects to string to prevent auto-conversion issues
+      if (val instanceof Date) {
+        if (textColumns.indexOf(header) !== -1) {
+          // For text columns, this was likely auto-converted by Sheets — return empty or just the text
+          val = '';
+        } else {
+          val = val.toISOString();
+        }
+      }
+      obj[header] = val;
     }
     objects.push(obj);
   }

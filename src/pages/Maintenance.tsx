@@ -3,12 +3,14 @@ import { api, type MaintenanceRecord } from '../services/api';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../store/auth';
 import { format } from 'date-fns';
-import { Plus, Search, Wrench } from 'lucide-react';
+import { Plus, Search, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Maintenance() {
   const { maintenanceHistory, devices, rooms, isLoading, refreshMaintenance } = useData();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -126,6 +128,29 @@ export default function Maintenance() {
     return d ? `${d.room} - ${d.subject}` : '';
   };
 
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredHistory.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedData = filteredHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const handleSearch = (term: string) => { setSearchTerm(term); setCurrentPage(1); };
+
+  const PaginationControls = () => {
+    if (filteredHistory.length <= ITEMS_PER_PAGE) return null;
+    return (
+      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+        <div className="text-xs text-slate-500">{startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, filteredHistory.length)} / {filteredHistory.length}</div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safeCurrentPage <= 1}
+            className="p-1.5 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+          <span className="text-xs font-medium text-slate-700 px-2">{safeCurrentPage}/{totalPages}</span>
+          <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safeCurrentPage >= totalPages}
+            className="p-1.5 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -150,7 +175,7 @@ export default function Maintenance() {
               className="block w-full rounded-md border-slate-300 pl-10 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 border"
               placeholder="Tìm kiếm theo mã TB, nội dung, người sửa..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
             />
           </div>
         </div>
@@ -160,7 +185,8 @@ export default function Maintenance() {
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Mã GD</th>
+                <th className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase w-12">STT</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Mã GD</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Thiết bị</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phòng</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Ngày</th>
@@ -182,14 +208,15 @@ export default function Maintenance() {
                     <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
                   </tr>
                 ))
-              ) : filteredHistory.length === 0 ? (
+              ) : paginatedData.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-slate-500">Không có dữ liệu</td>
+                  <td colSpan={8} className="px-6 py-4 text-center text-sm text-slate-500">Không có dữ liệu</td>
                 </tr>
               ) : (
-                filteredHistory.map((record) => (
+                paginatedData.map((record, idx) => (
                   <tr key={record.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{record.id}</td>
+                    <td className="px-3 py-3 text-center text-sm text-slate-400">{startIndex + idx + 1}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">{record.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="font-medium text-slate-900">{getDeviceName(record.device_id)}</div>
                       <div className="text-xs text-indigo-500 font-mono">{record.device_id}</div>
@@ -225,11 +252,12 @@ export default function Maintenance() {
           ) : filteredHistory.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-slate-500">Không có dữ liệu</div>
           ) : (
-            filteredHistory.map((record) => (
+            paginatedData.map((record, idx) => (
               <div key={record.id} className="p-3 hover:bg-slate-50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-slate-400 font-medium">{startIndex + idx + 1}.</span>
                       <span className="font-semibold text-sm text-slate-900 truncate">{getDeviceName(record.device_id)}</span>
                       <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full flex-shrink-0 ${record.result === 'Đã sửa' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                         }`}>
@@ -252,6 +280,8 @@ export default function Maintenance() {
             ))
           )}
         </div>
+
+        <PaginationControls />
       </div>
 
       {/* Toast */}

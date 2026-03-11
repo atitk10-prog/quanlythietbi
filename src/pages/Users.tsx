@@ -11,7 +11,9 @@ import {
     Building2,
     Key,
     CheckCircle2,
-    AlertTriangle
+    AlertTriangle,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useData } from '../context/DataContext';
@@ -19,6 +21,8 @@ import { useData } from '../context/DataContext';
 export default function Users() {
     const { users, setUsers, rooms, isLoading, refreshUsers } = useData();
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 15;
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<User | null>(null);
@@ -198,6 +202,29 @@ export default function Users() {
         }
     };
 
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(filteredUsers.length / ITEMS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    const paginatedUsers = filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const handleSearch = (term: string) => { setSearchTerm(term); setCurrentPage(1); };
+
+    const PaginationControls = () => {
+        if (filteredUsers.length <= ITEMS_PER_PAGE) return null;
+        return (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+                <div className="text-xs text-slate-500">{startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, filteredUsers.length)} / {filteredUsers.length}</div>
+                <div className="flex items-center gap-1">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={safeCurrentPage <= 1}
+                        className="p-1.5 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+                    <span className="text-xs font-medium text-slate-700 px-2">{safeCurrentPage}/{totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={safeCurrentPage >= totalPages}
+                        className="p-1.5 rounded-md text-slate-500 hover:bg-slate-200 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -233,7 +260,7 @@ export default function Users() {
                             className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-xl leading-5 bg-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all"
                             placeholder="Tìm tên, email hoặc phòng ban..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => handleSearch(e.target.value)}
                         />
                     </div>
                 </div>
@@ -243,7 +270,8 @@ export default function Users() {
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Người dùng</th>
+                                <th className="px-3 py-3 text-center text-xs font-semibold text-slate-500 uppercase w-12">STT</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Người dùng</th>
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Vai trò</th>
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Phòng ban</th>
                                 <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Thao tác</th>
@@ -259,16 +287,17 @@ export default function Users() {
                                         <td className="px-6 py-4"><div className="h-8 bg-slate-100 rounded-lg w-20 ml-auto"></div></td>
                                     </tr>
                                 ))
-                            ) : filteredUsers.length === 0 ? (
+                            ) : paginatedUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-10 text-center text-slate-500">
+                                    <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
                                         Không tìm thấy người dùng nào
                                     </td>
                                 </tr>
                             ) : (
-                                filteredUsers.map((u) => (
+                                paginatedUsers.map((u, idx) => (
                                     <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-3 py-3 text-center text-sm text-slate-400">{startIndex + idx + 1}</td>
+                                        <td className="px-4 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <div className="h-10 w-10 flex-shrink-0 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
                                                     {u.name.charAt(0).toUpperCase()}
@@ -351,10 +380,11 @@ export default function Users() {
                     ) : filteredUsers.length === 0 ? (
                         <div className="px-4 py-8 text-center text-sm text-slate-500">Không tìm thấy người dùng nào</div>
                     ) : (
-                        filteredUsers.map((u) => (
+                        paginatedUsers.map((u, idx) => (
                             <div key={u.id} className="p-3 hover:bg-slate-50 transition-colors">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center flex-1 min-w-0">
+                                        <span className="text-xs text-slate-400 font-medium mr-2">{startIndex + idx + 1}</span>
                                         <div className="h-9 w-9 flex-shrink-0 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
                                             {u.name.charAt(0).toUpperCase()}
                                         </div>
@@ -384,6 +414,8 @@ export default function Users() {
                         ))
                     )}
                 </div>
+
+                <PaginationControls />
             </div>
 
             {/* Add/Edit Modal */}
