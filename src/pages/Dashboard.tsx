@@ -321,6 +321,38 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Managed Devices List — shows actual device names for room managers */}
+      {user?.managed_rooms && visibleDevices.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-blue-800 flex items-center">
+              <MonitorSmartphone className="h-4 w-4 mr-2" />
+              Thiết bị bạn quản lý ({visibleDevices.length})
+            </h3>
+            <button onClick={() => navigate('/devices')} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+              Xem tất cả →
+            </button>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
+            {visibleDevices.map(d => (
+              <div key={d.id} className="px-4 py-2.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-between"
+                onClick={() => navigate(`/device/${d.id}`)}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate">{d.name}</p>
+                  <p className="text-xs text-slate-500">{d.room} • {d.subject} • SL: {d.quantity || 1}</p>
+                </div>
+                <span className={`ml-2 flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
+                  d.status === 'Tốt' ? 'bg-emerald-100 text-emerald-700' :
+                  d.status === 'Hỏng' || d.status === 'Hỏng nhẹ' ? 'bg-red-100 text-red-700' :
+                  d.status === 'Đang mượn' ? 'bg-blue-100 text-blue-700' :
+                  'bg-amber-100 text-amber-700'
+                }`}>{d.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
         <h3 className="text-lg font-medium leading-6 text-slate-900 mb-4">Biểu đồ sử dụng thiết bị (Tuần này)</h3>
         <div className="h-80">

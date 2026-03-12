@@ -28,7 +28,10 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+    // Users with managed_rooms can access device management pages
+    if (!user.managed_rooms) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <>{children}</>;
