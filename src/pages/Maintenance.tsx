@@ -3,7 +3,7 @@ import { api, type MaintenanceRecord } from '../services/api';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../store/auth';
 import { format } from 'date-fns';
-import { Plus, Search, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Wrench, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 
 export default function Maintenance() {
   const { maintenanceHistory, devices, rooms, isLoading, refreshMaintenance } = useData();
@@ -163,6 +163,45 @@ export default function Maintenance() {
           Thêm ghi chú bảo trì
         </button>
       </div>
+
+      {/* Panel: Thiết bị cần sửa chữa */}
+      {(() => {
+        const damagedDevices = devices.filter(d => d.status && d.status !== 'Tốt' && d.status !== 'Đang mượn');
+        if (damagedDevices.length === 0) return null;
+        return (
+          <div className="bg-white shadow-sm rounded-xl border border-amber-200 overflow-hidden">
+            <div className="px-4 py-3 bg-amber-50 border-b border-amber-200">
+              <h3 className="text-sm font-semibold text-amber-800 flex items-center">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Thiết bị cần sửa chữa ({damagedDevices.length})
+              </h3>
+            </div>
+            <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+              {damagedDevices.map(d => (
+                <div key={d.id} className="px-4 py-3 flex items-center justify-between hover:bg-slate-50">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-900">{d.name}</div>
+                    <div className="text-xs text-slate-500">{d.id} • {d.room} • {d.subject}</div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-slate-700">{d.quantity || 1}</div>
+                      <div className="text-[10px] text-slate-400 uppercase">Số lượng</div>
+                    </div>
+                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                      d.status === 'Hỏng' ? 'bg-red-100 text-red-800' :
+                      d.status === 'Hỏng nhẹ' ? 'bg-amber-100 text-amber-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {d.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
         <div className="p-3 sm:p-4 border-b border-slate-200 bg-slate-50">
