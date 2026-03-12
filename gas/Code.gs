@@ -445,7 +445,7 @@ function borrowDevice(data) {
   var headers = borrowSheet.getRange(1, 1, 1, borrowSheet.getLastColumn()).getValues()[0].map(function(h) { return String(h).toLowerCase().trim(); });
   
   var borrowData = {
-    borrow_id: borrowId,
+    id: borrowId,
     device_id: String(data.device_id),
     teacher: String(data.teacher),
     class: String(data.class),
