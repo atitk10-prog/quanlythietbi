@@ -1,5 +1,6 @@
-// Lightweight Excel export utility — no external dependencies
+// Excel export utility using file-saver for Chrome compatibility
 // Uses XML Spreadsheet format that opens in Excel, Google Sheets, WPS Office
+import { saveAs } from 'file-saver';
 
 function escapeXml(s: string): string {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -37,28 +38,6 @@ export function exportToXlsx(sheetName: string, headers: string[], rows: (string
   </Worksheet>
 </Workbook>`;
 
-  // Method 1: Try saveAs / msSaveBlob for IE/Edge compatibility
-  const blob = new Blob(['\uFEFF' + xmlContent], { type: 'application/octet-stream' });
-
-  if ((navigator as any).msSaveBlob) {
-    (navigator as any).msSaveBlob(blob, fileName);
-    return;
-  }
-
-  // Method 2: Use blob URL with delayed revoke
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.style.display = 'none';
-  document.body.appendChild(link);
-
-  // Use click with a small dispatch event for better compatibility
-  link.click();
-
-  // Delay cleanup to ensure download starts
-  setTimeout(() => {
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, 5000);
+  const blob = new Blob(['\uFEFF' + xmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  saveAs(blob, fileName);
 }
