@@ -441,30 +441,57 @@ function borrowDevice(data) {
   var borrowId = 'BH' + new Date().getTime().toString().slice(-6);
   var now = new Date().toISOString();
   
-  var newRow = [
-    borrowId,
-    String(data.device_id),
-    String(data.teacher),
-    String(data.class),
-    String(data.period || ''),
-    now,
-    '',
-    'Đang mượn',
-    String(data.note || ''),
-    requestQty,
-    0,
-    0,
-    ''
-  ];
+  // Use header-based column mapping
+  var headers = borrowSheet.getRange(1, 1, 1, borrowSheet.getLastColumn()).getValues()[0].map(function(h) { return String(h).toLowerCase().trim(); });
+  
+  var borrowData = {
+    borrow_id: borrowId,
+    device_id: String(data.device_id),
+    teacher: String(data.teacher),
+    class: String(data.class),
+    period: String(data.period || ''),
+    borrow_date: now,
+    return_date: '',
+    status: 'Đang mượn',
+    note: String(data.note || ''),
+    quantity: requestQty,
+    returned_qty: 0,
+    missing_qty: 0,
+    missing_note: ''
+  };
+  
+  // Auto-create missing columns
+  var lastCol = headers.length;
+  var allHeaders = headers.slice();
+  for (var key in borrowData) {
+    if (allHeaders.indexOf(key) === -1) {
+      allHeaders.push(key);
+      borrowSheet.getRange(1, lastCol + 1).setValue(key);
+      lastCol++;
+    }
+  }
+  
+  // Map data to correct column positions
+  var newRow = new Array(allHeaders.length).fill('');
+  for (var key in borrowData) {
+    var colIdx = allHeaders.indexOf(key);
+    if (colIdx !== -1) {
+      newRow[colIdx] = borrowData[key];
+    }
+  }
   
   borrowSheet.appendRow(newRow);
   
-  // Force text format on teacher, class, period columns to prevent auto-conversion
+  // Force text format on teacher, class, period columns
   var lastRow = borrowSheet.getLastRow();
-  borrowSheet.getRange(lastRow, 3, 1, 3).setNumberFormat('@'); // columns C, D, E (teacher, class, period)
-  // Re-set values as plain text after formatting
-  borrowSheet.getRange(lastRow, 4).setValue(String(data.class));
-  borrowSheet.getRange(lastRow, 5).setValue(String(data.period || ''));
+  var teacherCol = allHeaders.indexOf('teacher') + 1;
+  var classCol = allHeaders.indexOf('class') + 1;
+  var periodCol = allHeaders.indexOf('period') + 1;
+  if (teacherCol > 0 && classCol > 0 && periodCol > 0) {
+    borrowSheet.getRange(lastRow, teacherCol).setNumberFormat('@');
+    borrowSheet.getRange(lastRow, classCol).setNumberFormat('@').setValue(String(data.class));
+    borrowSheet.getRange(lastRow, periodCol).setNumberFormat('@').setValue(String(data.period || ''));
+  }
   
   // Cập nhật status nếu hết SL
   if (availableQty - requestQty <= 0) {
