@@ -15,7 +15,14 @@ export default function Devices() {
   const getBorrowedQty = (deviceId: string): number => {
     return borrowHistory
       .filter(b => b.device_id === deviceId && (b.status === 'Đang mượn' || b.status === 'Trả thiếu'))
-      .reduce((sum, b) => sum + ((b.quantity || 1) - (b.returned_qty || 0)), 0);
+      .reduce((sum, b) => sum + ((b.quantity || 1) - (b.returned_qty || 0) - (b.missing_qty || 0)), 0);
+  };
+
+  // Calculate total lost/missing quantity per device
+  const getMissingQty = (deviceId: string): number => {
+    return borrowHistory
+      .filter(b => b.device_id === deviceId)
+      .reduce((sum, b) => sum + (b.missing_qty || 0), 0);
   };
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -276,6 +283,7 @@ export default function Devices() {
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phòng</th>
                 <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Tổng</th>
                 <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Mượn</th>
+                <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Mất</th>
                 <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Còn</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tình trạng</th>
                 <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Thao tác</th>
@@ -295,13 +303,14 @@ export default function Devices() {
                 ))
               ) : paginatedDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-4 text-center text-sm text-slate-500">Không tìm thấy thiết bị nào</td>
+                  <td colSpan={10} className="px-6 py-4 text-center text-sm text-slate-500">Không tìm thấy thiết bị nào</td>
                 </tr>
               ) : (
                 paginatedDevices.map((device, idx) => {
                   const totalQty = device.quantity || 1;
                   const borrowed = getBorrowedQty(device.id);
-                  const available = totalQty - borrowed;
+                  const lost = getMissingQty(device.id);
+                  const available = totalQty - borrowed - lost;
                   return (
                   <tr key={device.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-3 py-3 text-center text-sm text-slate-400">{startIndex + idx + 1}</td>
@@ -317,6 +326,13 @@ export default function Devices() {
                     <td className="px-3 py-3 whitespace-nowrap text-center">
                       {borrowed > 0 ? (
                         <span className="text-sm font-bold text-blue-600">{borrowed}</span>
+                      ) : (
+                        <span className="text-sm text-slate-300">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-center">
+                      {lost > 0 ? (
+                        <span className="text-sm font-bold text-red-600">{lost}</span>
                       ) : (
                         <span className="text-sm text-slate-300">0</span>
                       )}

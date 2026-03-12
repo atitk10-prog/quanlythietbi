@@ -24,7 +24,12 @@ export default function Dashboard() {
 
   // Teacher's active borrows
   const myActiveBorrows = user?.role === 'teacher'
-    ? borrowHistory.filter(b => b.teacher === user.name && b.status === 'Đang mượn')
+    ? borrowHistory.filter(b => {
+        if (b.teacher !== user.name) return false;
+        if (b.status !== 'Đang mượn' && b.status !== 'Trả thiếu') return false;
+        const remaining = (b.quantity || 1) - (b.returned_qty || 0) - (b.missing_qty || 0);
+        return remaining > 0;
+      })
     : [];
 
   const myReturnedBorrows = user?.role === 'teacher'
@@ -36,7 +41,11 @@ export default function Dashboard() {
     if (!user) return [];
     // Teachers without managed_rooms don't see this panel
     if (user.role === 'teacher' && !user.managed_rooms) return [];
-    const activeBorrows = borrowHistory.filter(b => b.status === 'Đang mượn' || b.status === 'Trả thiếu');
+    const activeBorrows = borrowHistory.filter(b => {
+      if (b.status !== 'Đang mượn' && b.status !== 'Trả thiếu') return false;
+      const remaining = (b.quantity || 1) - (b.returned_qty || 0) - (b.missing_qty || 0);
+      return remaining > 0;
+    });
     if (user.managed_rooms) {
       const managedIds = user.managed_rooms.split(',').map(s => s.trim()).filter(Boolean);
       if (managedIds.length > 0) {
