@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, type Device, type BorrowRecord } from '../services/api';
 import { useAuth } from '../store/auth';
+import { useData } from '../context/DataContext';
 import { ArrowLeft, CheckCircle, Package, AlertTriangle } from 'lucide-react';
 
 export default function DeviceAction() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { refreshDevices, refreshHistory } = useData();
 
   const [device, setDevice] = useState<Device | null>(null);
   const [activeBorrows, setActiveBorrows] = useState<BorrowRecord[]>([]);
@@ -88,7 +90,10 @@ export default function DeviceAction() {
         quantity: borrowData.quantity
       });
       setSuccess(`Mượn thành công ${borrowData.quantity} thiết bị!`);
-      setTimeout(() => navigate('/history'), 2000);
+      // Refresh data for realtime updates
+      refreshDevices();
+      refreshHistory();
+      setTimeout(() => navigate('/history'), 1500);
     } catch (err: any) {
       setError(err.message || 'Lỗi khi mượn thiết bị');
       setIsLoading(false);
@@ -116,7 +121,10 @@ export default function DeviceAction() {
         ? `Trả ${returnData.returned_qty}, thiếu ${returnData.missing_qty} thiết bị`
         : `Trả thành công ${returnData.returned_qty} thiết bị!`;
       setSuccess(msg);
-      setTimeout(() => navigate('/history'), 2000);
+      // Refresh data for realtime updates
+      refreshDevices();
+      refreshHistory();
+      setTimeout(() => navigate('/history'), 1500);
     } catch (err: any) {
       setError(err.message || 'Lỗi khi trả thiết bị');
       setIsLoading(false);

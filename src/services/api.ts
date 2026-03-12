@@ -4,7 +4,7 @@
 const GAS_URL = import.meta.env.VITE_GAS_URL || '';
 
 // --- Cache Layer ---
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
 
 interface CacheEntry {
   data: any;
@@ -257,17 +257,13 @@ export const api = {
   // Borrow
   borrowDevice: async (data: { device_id: string; teacher: string; class: string; period: string; note: string; quantity?: number }): Promise<{ success: boolean, id: string, available: number }> => {
     const result = await callApi('borrowDevice', data);
-    cache.invalidate('devices');
-    cache.invalidate('borrow');
-    cache.invalidate('dashboard');
+    cache.invalidateAll(); // Clear all caches for realtime updates
     return result;
   },
 
   returnDevice: async (data: { device_id: string; borrow_id: string; teacher: string; returned_qty?: number; missing_qty?: number; missing_note?: string; status: string; note: string }): Promise<{ success: boolean }> => {
     const result = await callApi('returnDevice', data);
-    cache.invalidate('devices');
-    cache.invalidate('borrow');
-    cache.invalidate('dashboard');
+    cache.invalidateAll(); // Clear all caches for realtime updates
     return result;
   },
 

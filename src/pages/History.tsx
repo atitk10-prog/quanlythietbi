@@ -151,7 +151,7 @@ export default function History() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Lịch sử mượn trả</h1>
-        {user?.role === 'vice_principal' && (
+        {user?.role !== 'teacher' && (
           <button onClick={exportCSV}
             className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
             <Download className="-ml-1 mr-2 h-5 w-5 text-slate-400" />

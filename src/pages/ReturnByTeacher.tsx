@@ -9,7 +9,7 @@ export default function ReturnByTeacher() {
   const { teacher } = useParams<{ teacher: string }>();
   const teacherName = decodeURIComponent(teacher || '');
   const navigate = useNavigate();
-  const { borrowHistory, devices, refreshHistory } = useData();
+  const { borrowHistory, devices, refreshHistory, refreshDevices } = useData();
   const [returningId, setReturningId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -46,6 +46,7 @@ export default function ReturnByTeacher() {
       });
       showToast('Trả thiết bị thành công!');
       refreshHistory?.();
+      refreshDevices?.();
     } catch (error: any) {
       showToast(error.message || 'Lỗi khi trả thiết bị', 'error');
     } finally {
@@ -71,6 +72,7 @@ export default function ReturnByTeacher() {
       }
       showToast(`Đã trả tất cả ${activeBorrows.length} thiết bị!`);
       refreshHistory?.();
+      refreshDevices?.();
     } catch (error: any) {
       showToast(error.message || 'Lỗi khi trả thiết bị', 'error');
     } finally {
