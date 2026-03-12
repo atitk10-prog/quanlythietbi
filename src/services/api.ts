@@ -210,6 +210,9 @@ const mapUser = (row: any): User => ({
 });
 
 export const api = {
+  // Cache management
+  clearCache: () => cache.invalidateAll(),
+
   // Auth
   login: async (email: string, password: string) => {
     cache.invalidateAll(); // Clear cache on login

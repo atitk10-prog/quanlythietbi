@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { api, type Device, type User, type BorrowRecord, type MaintenanceRecord, type Room } from '../services/api';
+
+// Auto-refresh interval (30 seconds)
+const AUTO_REFRESH_INTERVAL = 30_000;
 
 interface DataContextType {
     devices: Device[];
@@ -31,6 +34,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [rooms, setRooms] = useState<Room[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [hasInitialLoaded, setHasInitialLoaded] = useState(false);
+    const isRefreshing = useRef(false);
 
     const refreshDevices = useCallback(async () => {
         try {
@@ -90,6 +94,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setHasInitialLoaded(true);
     }, [hasInitialLoaded, refreshDevices, refreshUsers, refreshHistory, refreshMaintenance, refreshRooms]);
 
+    // Background refresh — silently updates data without showing loading spinner
+    const backgroundRefresh = useCallback(async () => {
+        if (isRefreshing.current) return; // Prevent concurrent refreshes
+        isRefreshing.current = true;
+        try {
+            // Invalidate cache so we get fresh data from GAS
+            api.clearCache();
+            await Promise.all([
+                refreshDevices(),
+                refreshHistory(),
+                refreshRooms()
+            ]);
+        } catch {
+            // Silent — don't show errors for background refresh
+        } finally {
+            isRefreshing.current = false;
+        }
+    }, [refreshDevices, refreshHistory, refreshRooms]);
+
     // Initial load — only if user is logged in
     useEffect(() => {
         const savedUser = localStorage.getItem('auth_user');
@@ -99,6 +122,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setIsLoading(false);
         }
     }, []);
+
+    // Auto-polling: refresh data every 30 seconds in background
+    useEffect(() => {
+        if (!hasInitialLoaded) return;
+
+        const interval = setInterval(() => {
+            backgroundRefresh();
+        }, AUTO_REFRESH_INTERVAL);
+
+        return () => clearInterval(interval);
+    }, [hasInitialLoaded, backgroundRefresh]);
+
+    // Refresh on tab focus — when user switches back to the app
+    useEffect(() => {
+        if (!hasInitialLoaded) return;
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                backgroundRefresh();
+            }
+        };
+
+        const handleFocus = () => {
+            backgroundRefresh();
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleFocus);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [hasInitialLoaded, backgroundRefresh]);
 
     return (
         <DataContext.Provider value={{
