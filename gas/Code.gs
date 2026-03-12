@@ -658,12 +658,8 @@ function returnDevice(data) {
     updateDeviceStatus(data.device_id, 'Tốt');
   }
   
-  // Nếu có thiết bị mất → giảm quantity trong sheet devices
-  if (missingQty > 0) {
-    var newTotalQty = totalDeviceQty - missingQty;
-    if (newTotalQty < 0) newTotalQty = 0;
-    updateDevice(data.device_id, { quantity: newTotalQty });
-  }
+  // Lưu ý: KHÔNG giảm quantity khi mất — quantity là SL gốc ban đầu
+  // Số mất được tính từ borrow_history (missing_qty)
   
   return { success: true, returned: returnQty, missing: missingQty };
 }
