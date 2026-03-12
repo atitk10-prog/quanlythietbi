@@ -31,11 +31,11 @@ export default function Dashboard() {
     ? borrowHistory.filter(b => b.teacher === user.name && b.status !== 'Đang mượn').slice(0, 5)
     : [];
 
-  // Equipment staff: all active borrows (filtered by managed rooms if applicable)
+  // All staff/admin: active borrows (filtered by managed rooms if set)
   const equipmentActiveBorrows = (() => {
-    if (!user || !['equipment', 'admin', 'vice_principal'].includes(user.role)) return [];
+    if (!user || user.role === 'teacher') return [];
     const activeBorrows = borrowHistory.filter(b => b.status === 'Đang mượn' || b.status === 'Trả thiếu');
-    if (user.role === 'equipment' && user.managed_rooms) {
+    if (user.managed_rooms) {
       const managedIds = user.managed_rooms.split(',').map(s => s.trim()).filter(Boolean);
       if (managedIds.length > 0) {
         const managedRoomNames = rooms.filter(r => managedIds.includes(r.id)).map(r => r.name);
@@ -55,9 +55,9 @@ export default function Dashboard() {
   // Return QR URL — encodes teacher name to allow staff to scan and see all borrows
   const returnQRUrl = `${window.location.origin}/return/${encodeURIComponent(user?.name || '')}`;
 
-  // Filter devices by managed_rooms for equipment staff
+  // Filter devices by managed_rooms (applies to ALL roles)
   const visibleDevices = (() => {
-    if (user?.role === 'equipment' && user.managed_rooms) {
+    if (user?.managed_rooms) {
       const managedIds = user.managed_rooms.split(',').map(s => s.trim()).filter(Boolean);
       if (managedIds.length > 0) {
         const managedRooms = rooms.filter(r => managedIds.includes(r.id));
@@ -241,7 +241,7 @@ export default function Dashboard() {
       )}
 
       {/* Equipment/Admin: Active Borrows Overview */}
-      {['equipment', 'admin', 'vice_principal'].includes(user?.role || '') && equipmentActiveBorrows.length > 0 && (
+      {user?.role !== 'teacher' && equipmentActiveBorrows.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-amber-800 flex items-center">
